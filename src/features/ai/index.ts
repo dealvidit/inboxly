@@ -14,7 +14,11 @@ export type {
 
 export {
   ANALYSIS_SCHEMA_VERSION,
+  ActionItemSchema,
+  DeadlineSchema,
   EmailAnalysisSchema,
+  ExtractedEntitiesSchema,
+  MeetingInformationSchema,
   EmailCategorySchema,
   SentimentSchema,
   UrgencySchema,

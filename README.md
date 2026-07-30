@@ -23,7 +23,7 @@ Under active development. Progress is tracked in [`docs/roadmap.md`](./docs/road
 - [x] Milestone 5 — AI pipeline
 - [x] Milestone 6 — processing lifecycle
 - [x] Milestone 7 — API
-- [ ] Milestone 8 — dashboard
+- [x] Milestone 8 — dashboard
 - [ ] Milestone 9 — production readiness
 - [ ] Milestone 10 — final review
 
