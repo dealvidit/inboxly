@@ -1,19 +1,34 @@
+import { redirect } from 'next/navigation';
+import { getCurrentSession } from '@/features/auth';
+import { GoogleSignInButton } from '@/features/auth/components/google-sign-in-button';
+
+export const dynamic = 'force-dynamic';
+
 const capabilities = [
   {
     title: 'Incremental sync',
-    body: 'Gmail’s History API keeps the mailbox current at a cost that scales with what changed, not with how much mail you have.',
+    body: 'Gmail’s History API keeps your mailbox current at a cost that scales with what changed, not with how much mail you have.',
   },
   {
     title: 'Validated AI',
-    body: 'Every model response is parsed and checked against a schema before it is allowed into the database. Invalid output never reaches you.',
+    body: 'Every model response is checked against a schema before it is allowed into the database. Invalid output never reaches you.',
   },
   {
     title: 'Triage, not reading',
-    body: 'Category, urgency, action items, deadlines, and a suggested reply — so you decide what deserves attention without opening anything.',
+    body: 'Category, urgency, action items, deadlines, and a suggested reply — so you can decide what deserves attention without opening anything.',
   },
 ];
 
-export default function LandingPage() {
+export default async function LandingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ auth_error?: string }>;
+}) {
+  const session = await getCurrentSession();
+  if (session) redirect('/dashboard');
+
+  const { auth_error: authError } = await searchParams;
+
   return (
     <main id="main" className="mx-auto max-w-3xl px-6 py-24">
       <p className="text-brand text-sm font-semibold tracking-wide uppercase">
@@ -27,7 +42,24 @@ export default function LandingPage() {
         every message through a typed AI pipeline — then shows you only what matters.
       </p>
 
-      <ul className="mt-14 grid gap-6 sm:grid-cols-3">
+      {authError ? (
+        <p
+          role="alert"
+          className="border-urgent/30 bg-urgent/5 text-urgent mt-8 rounded-[var(--radius-card)] border px-4 py-3 text-sm"
+        >
+          {authError}
+        </p>
+      ) : null}
+
+      <div className="mt-10">
+        <GoogleSignInButton />
+        <p className="text-ink-muted mt-3 text-xs">
+          Inboxly requests read-only access to Gmail. It cannot send, modify, or delete
+          your mail.
+        </p>
+      </div>
+
+      <ul className="mt-16 grid gap-6 sm:grid-cols-3">
         {capabilities.map((capability) => (
           <li
             key={capability.title}
@@ -40,10 +72,6 @@ export default function LandingPage() {
           </li>
         ))}
       </ul>
-
-      <p className="text-ink-muted mt-14 text-sm">
-        Sign-in arrives with the authentication milestone.
-      </p>
     </main>
   );
 }

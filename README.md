@@ -16,9 +16,9 @@ Gmail ──▶ incremental sync ──▶ PostgreSQL ──▶ AI analysis ─�
 Under active development. Progress is tracked in [`docs/roadmap.md`](./docs/roadmap.md).
 
 - [x] Milestone 0 — architecture, domain model, ADRs
-- [ ] Milestone 1 — toolchain
-- [ ] Milestone 2 — database
-- [ ] Milestone 3 — authentication
+- [x] Milestone 1 — toolchain
+- [x] Milestone 2 — database
+- [x] Milestone 3 — authentication
 - [ ] Milestone 4 — Gmail synchronization
 - [ ] Milestone 5 — AI pipeline
 - [ ] Milestone 6 — processing lifecycle
@@ -26,6 +26,53 @@ Under active development. Progress is tracked in [`docs/roadmap.md`](./docs/road
 - [ ] Milestone 8 — dashboard
 - [ ] Milestone 9 — production readiness
 - [ ] Milestone 10 — final review
+
+## Getting started
+
+Requires Node 22+ and Docker.
+
+```bash
+git clone <repository-url> inboxly && cd inboxly
+npm install
+cp .env.example .env
+```
+
+Fill in `.env`. Three values need generating or fetching:
+
+```bash
+openssl rand -base64 32   # ENCRYPTION_KEY
+openssl rand -hex 24      # CRON_SECRET
+```
+
+`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` come from the
+[Google Cloud Console](https://console.cloud.google.com/apis/credentials): create an
+OAuth 2.0 Client ID of type **Web application**, enable the **Gmail API** on the same
+project, and add `http://localhost:3000/api/auth/callback/google` to the client's
+authorised redirect URIs. `ANTHROPIC_API_KEY` comes from the
+[Anthropic Console](https://console.anthropic.com/settings/keys).
+
+Then bring up the database and the app:
+
+```bash
+npm run db:up          # Postgres in Docker (creates inboxly and inboxly_test)
+npm run db:migrate     # apply migrations
+npm run db:test:setup  # prepare the integration-test database
+npm run dev
+```
+
+Open <http://localhost:3000> and sign in with Google.
+
+### Commands
+
+| Command              | Purpose                                              |
+| -------------------- | ---------------------------------------------------- |
+| `npm run dev`        | Development server                                   |
+| `npm run verify`     | Format, lint, typecheck, and test — what CI runs     |
+| `npm test`           | Test suite (integration tests need Postgres running) |
+| `npm run test:watch` | Tests in watch mode                                  |
+| `npm run db:migrate` | Create and apply a migration                         |
+| `npm run db:studio`  | Browse the database                                  |
+| `npm run db:reset`   | Drop and rebuild the development database            |
 
 ## Stack
 

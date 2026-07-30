@@ -87,16 +87,28 @@ const config = [
   },
 
   {
-    // Repositories are the only place Prisma queries are written; services and
-    // routers must go through them so that user scoping cannot be bypassed.
+    // Repositories are the only place Prisma queries are written; services and routers
+    // go through them so that user scoping cannot be bypassed.
+    //
+    // Only the `db` client itself is banned, not the whole module: enums and row types
+    // are domain vocabulary that services legitimately need, and banning them would push
+    // callers into re-exporting Prisma's generated types by hand.
     files: ['src/features/*/service/**/*.ts', 'src/features/*/router.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
         {
+          paths: [
+            {
+              name: '@/server/db',
+              importNames: ['db'],
+              message:
+                'Services and routers must not query the database directly. Add a repository function that scopes by userId. See ADR 0008.',
+            },
+          ],
           patterns: [
             {
-              group: ['@/server/db', '@/server/db/*'],
+              group: ['@/server/db/client', '@/generated/prisma/client'],
               message:
                 'Services and routers must not query the database directly. Add a repository function that scopes by userId. See ADR 0008.',
             },
