@@ -88,6 +88,25 @@ JSON mode looks no better from the outside than one without. Returning raw text 
 than a parsed object pushes a little work onto the pipeline, in exchange for one trust
 boundary instead of N.
 
+## Validation
+
+The claim above was tested rather than assumed: Google Gemini was added afterwards as a
+second real provider. It required one new directory
+(`features/ai/providers/google/`), one `case` in the factory, and two environment
+variables. **No business logic changed** — the analyzer, the runner, the repositories,
+the API, and the dashboard were untouched.
+
+Two differences surfaced, and both were absorbed inside the provider, which is where they
+belong:
+
+- Gemini's `responseSchema` is an OpenAPI 3.0 subset rather than JSON Schema. It rejects
+  `$schema`, `additionalProperties`, and `$ref`, and expresses nullability as a
+  `nullable: true` flag instead of a `anyOf: [T, null]` union. `gemini-schema.ts` does
+  that conversion, and is tested on its own because a silently wrong schema would surface
+  as a confusing 400 rather than an obvious bug.
+- Gemini reports a content-policy stop as a `finishReason` on a `200` response, where
+  Anthropic returns a distinct `stop_reason`. Both normalise to `AiRefusalError`.
+
 ## Consequences
 
 - Adding a provider is one directory and one factory entry; no business logic changes.

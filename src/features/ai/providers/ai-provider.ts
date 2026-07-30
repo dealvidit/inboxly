@@ -18,7 +18,7 @@ import {
  * implementation trivial and keeps the trust boundary in exactly one place (ADR 0005).
  */
 
-export const AI_PROVIDER_IDS = ['anthropic', 'fake'] as const;
+export const AI_PROVIDER_IDS = ['anthropic', 'gemini', 'fake'] as const;
 export type AiProviderId = (typeof AI_PROVIDER_IDS)[number];
 
 /** Context handed back to the model after its previous output failed validation. */

@@ -85,7 +85,7 @@ Open <http://localhost:3000> and sign in with Google.
 | Data fetching | TanStack Query                                            |
 | Database      | PostgreSQL via Prisma                                     |
 | Validation    | Zod — schemas are the source of truth, types are inferred |
-| AI            | Provider-agnostic; Anthropic by default                   |
+| AI            | Provider-agnostic; Anthropic or Gemini                    |
 | Email         | Gmail API with History-based incremental sync             |
 | Hosting       | Vercel                                                    |
 
@@ -117,6 +117,11 @@ restarts. See [ADR 0004](./docs/adr/0004-gmail-synchronization.md).
 **The queue is the database.** Emails needing analysis are found by querying for them, not
 by maintaining a parallel job table. Concurrency safety comes from
 `FOR UPDATE SKIP LOCKED`. See [ADR 0006](./docs/adr/0006-background-processing.md).
+
+**The AI abstraction is tested, not asserted.** Anthropic and Gemini are both
+implemented. Adding the second one changed no business logic — one provider directory and
+one factory entry — which is the only evidence that an abstraction is real rather than
+decorative.
 
 **Abstractions must earn their place.** Interfaces exist at three boundaries, each with a
 second implementation or a genuine need to be faked in tests. Everywhere else, modules

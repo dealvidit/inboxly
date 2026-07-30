@@ -65,9 +65,16 @@ const envSchema = z.object({
    * AI_PROVIDER selects the implementation of the AiProvider interface. Adding a
    * provider means extending this enum and the factory — no business logic changes.
    */
-  AI_PROVIDER: z.enum(['anthropic']).default('anthropic'),
+  AI_PROVIDER: z.enum(['anthropic', 'gemini']).default('anthropic'),
   ANTHROPIC_API_KEY: nonEmpty('ANTHROPIC_API_KEY'),
   ANTHROPIC_MODEL: z.string().default('claude-sonnet-5'),
+
+  /**
+   * Optional: only required when AI_PROVIDER is `gemini`. The factory fails loudly if it
+   * is selected without a key, rather than failing every request at runtime.
+   */
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().default('gemini-2.0-flash'),
 
   /* ─── Background jobs ──────────────────────────────────────────────────────
    * CRON_SECRET authenticates the scheduler against /api/jobs/*. Without it those
