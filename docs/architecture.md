@@ -55,20 +55,24 @@ src/
       health/                 Liveness/readiness probe
       jobs/                   Cron-triggered sync + analysis runners
   features/                   Vertical slices. The application lives here.
-    auth/
-    gmail/
-    sync/
-    ai/
-    emails/
-    analytics/
+    auth/                     OAuth, sessions, the Gmail connection
+    gmail/                    Gmail transport + the synchronization engine
+    ai/                       Provider abstraction + the typed analysis pipeline
+    processing/               The analysis queue and its runner
+    emails/                   Reads for the dashboard: views, search, pagination
+    sync/                     Sync/connection control surface
+    analytics/                Dashboard aggregates
   server/                     Cross-cutting server infrastructure
     db/                       Prisma client singleton
     trpc/                     tRPC init, context, procedures, root router
     logger/                   Structured logging
     errors/                   Typed application errors
-  lib/                        Small, dependency-free utilities
-    env.ts                    Zod-validated environment
-    crypto.ts                 Token encryption, hashing
+  lib/                        Small utilities, importable from anywhere
+    env.ts                    Zod-validated environment — the only reader of process.env
+    crypto.ts                 Token encryption, hashing, PKCE
+    csrf.ts                   Double-submit verification (generic HTTP defence)
+    retry.ts                  Backoff with jitter, and the wall-clock TimeBudget
+  instrumentation.ts          Runs once per server process; registers shutdown handlers
   components/                 Presentational components shared across features
     ui/                       shadcn/ui primitives
 ```
@@ -81,7 +85,8 @@ src/
   (its `index.ts`-style barrel of services and domain types), never its repositories.
 - `server/` and `lib/` never import from `features/` or `app/`.
 - Nothing outside `features/ai/providers/` may import an AI SDK.
-- Nothing outside `features/gmail/client/` may import `googleapis`.
+- Nothing outside `features/gmail/client/` may import a Gmail SDK.
+- Services and routers may not import the `db` client; they go through a repository.
 
 These rules keep business logic testable without HTTP, without Next.js, and without
 network access.

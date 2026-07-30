@@ -74,7 +74,7 @@ export function createAnalysisRunner(deps: AnalysisRunnerDeps = {}) {
       let retrying = 0;
       let stoppedEarly = false;
 
-      for (const email of claimed) {
+      for (const [index, email] of claimed.entries()) {
         if (!budget.hasTimeRemaining(EMAIL_RESERVE_MS)) {
           // Release the rest of the batch immediately rather than leaving them leased
           // until expiry — the next invocation can pick them up straight away.
@@ -87,7 +87,33 @@ export function createAnalysisRunner(deps: AnalysisRunnerDeps = {}) {
         const outcome = await analyseOne(email, maxAttempts);
         if (outcome === 'completed') completed += 1;
         else if (outcome === 'failed') failed += 1;
-        else retrying += 1;
+        else retrying += 1; // 'retry' and 'fatal' both leave the email queued
+
+        if (outcome === 'fatal') {
+          // The failure is a property of the deployment, not of this email — a bad API
+          // key, say. Every remaining email would fail identically, so release them
+          // untouched rather than burning each one's retry budget on the same fault.
+          //
+          // Releasing explicitly rather than letting the lease lapse matters: a lease
+          // runs for minutes, and the operator who fixes the key wants the next run to
+          // pick the work up immediately.
+          const remaining = claimed.slice(index + 1);
+          for (const deferred of remaining) {
+            await queue.markNeedsRetry(
+              deferred.id,
+              'Deferred: AI analysis is unavailable.',
+            );
+          }
+          retrying += remaining.length;
+
+          runLog.error(
+            'stopping batch: AI analysis is misconfigured',
+            new Error('provider authentication failed'),
+            { released: remaining.length },
+          );
+          stoppedEarly = true;
+          break;
+        }
       }
 
       const result: AnalysisRunResult = {
@@ -116,7 +142,7 @@ export function createAnalysisRunner(deps: AnalysisRunnerDeps = {}) {
   async function analyseOne(
     email: ClaimedEmail,
     attemptBudget: number,
-  ): Promise<'completed' | 'failed' | 'retry'> {
+  ): Promise<'completed' | 'failed' | 'retry' | 'fatal'> {
     const result = await analyzer.analyze(toProjection(email));
 
     await recordAttempts(email.id, email.userId, result.attempts);
@@ -135,6 +161,13 @@ export function createAnalysisRunner(deps: AnalysisRunnerDeps = {}) {
       });
       await queue.markCompleted(email.id, now());
       return 'completed';
+    }
+
+    // A deployment-level fault must not consume this email's retry budget: the email is
+    // fine, the configuration is not. Return it to the queue and let the caller stop.
+    if (result.fatal) {
+      await queue.markNeedsRetry(email.id, result.reason);
+      return 'fatal';
     }
 
     // The claim incremented `processingAttempts` and the row was loaded afterwards, so

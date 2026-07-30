@@ -93,9 +93,3 @@ export async function recordAttempts(
     })),
   });
 }
-
-/** Removes stored analyses for a user, so they can be re-run after a schema change. */
-export async function deleteAnalysesForUser(userId: string): Promise<number> {
-  const { count } = await db.emailAnalysis.deleteMany({ where: { userId } });
-  return count;
-}

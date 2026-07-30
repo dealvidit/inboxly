@@ -1,21 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { generateToken } from './crypto';
 import { ForbiddenError } from '@/server/errors';
-import { assertCsrfTokenMatches, isSafeMethod } from './csrf';
-
-describe('isSafeMethod', () => {
-  it('treats read-only methods as safe', () => {
-    for (const method of ['GET', 'HEAD', 'OPTIONS', 'get', 'head']) {
-      expect(isSafeMethod(method)).toBe(true);
-    }
-  });
-
-  it('treats state-changing methods as unsafe', () => {
-    for (const method of ['POST', 'PUT', 'PATCH', 'DELETE', 'post']) {
-      expect(isSafeMethod(method)).toBe(false);
-    }
-  });
-});
+import { assertCsrfTokenMatches } from './csrf';
 
 describe('assertCsrfTokenMatches', () => {
   it('accepts a matching header and cookie', () => {

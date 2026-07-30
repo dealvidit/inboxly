@@ -18,13 +18,6 @@ import { ForbiddenError } from '@/server/errors';
 
 export const CSRF_HEADER = 'x-csrf-token';
 
-/** Methods that cannot change state, and so need no token. */
-const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-
-export function isSafeMethod(method: string): boolean {
-  return SAFE_METHODS.has(method.toUpperCase());
-}
-
 /**
  * Throws unless the header matches the cookie. Both must be present: a missing token is
  * a failure, not a pass — the common way this check gets silently disabled is treating

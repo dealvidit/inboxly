@@ -4,6 +4,7 @@ import { env } from '@/lib/env';
 import { AttemptOutcome } from '@/server/db';
 import { logger } from '@/server/logger';
 import {
+  AiAuthError,
   AiRateLimitError,
   AiRefusalError,
   AiTransientError,
@@ -72,6 +73,12 @@ export type AnalysisResult =
       readonly ok: false;
       /** Whether the caller should return this email to the queue or fail it outright. */
       readonly retryable: boolean;
+      /**
+       * True when the failure is a property of the deployment rather than of this email
+       * — a missing or invalid API key, for instance. Every email in the batch would
+       * fail identically, so the caller should stop rather than work through them.
+       */
+      readonly fatal: boolean;
       /** User-safe reason, suitable for `Email.processingError`. */
       readonly reason: string;
       readonly attempts: readonly AnalysisAttemptRecord[];
@@ -121,6 +128,7 @@ export function createEmailAnalyzer(deps: EmailAnalyzerDeps) {
           return {
             ok: false,
             retryable: isRetryableProviderError(error),
+            fatal: error instanceof AiAuthError,
             reason: reasonFor(error),
             attempts,
           };
@@ -210,6 +218,7 @@ export function createEmailAnalyzer(deps: EmailAnalyzerDeps) {
       return {
         ok: false,
         retryable: false,
+        fatal: false,
         reason: 'The AI response did not match the expected format.',
         attempts,
       };
@@ -270,7 +279,14 @@ function outcomeFor(error: unknown): AttemptOutcome {
 }
 
 function isRetryableProviderError(error: unknown): boolean {
-  return error instanceof AiRateLimitError || error instanceof AiTransientError;
+  return (
+    error instanceof AiRateLimitError ||
+    error instanceof AiTransientError ||
+    // An invalid API key is an operator problem, not a problem with this email. Failing
+    // it permanently would mean a misconfigured deployment silently destroys the user's
+    // analysis; retryable means it recovers once the key is fixed.
+    error instanceof AiAuthError
+  );
 }
 
 /** Always a user-safe message — provider text never reaches this. */
@@ -281,7 +297,7 @@ function reasonFor(error: unknown): string {
   if (error instanceof AiRefusalError) {
     return 'This email could not be analysed.';
   }
-  if (error instanceof AiTransientError) {
+  if (error instanceof AiTransientError || error instanceof AiAuthError) {
     return 'AI analysis is temporarily unavailable.';
   }
   return 'This email could not be analysed.';

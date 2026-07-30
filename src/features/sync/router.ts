@@ -1,6 +1,6 @@
 import { googleAccountService, revokeAllSessions } from '@/features/auth';
 import { syncService } from '@/features/gmail';
-import { analysisRunner } from '@/features/processing';
+import { analysisRunner, resetFailedAnalyses } from '@/features/processing';
 import { ConflictError } from '@/server/errors';
 import {
   createTRPCRouter,
@@ -49,6 +49,18 @@ export const syncRouter = createTRPCRouter({
   analyzeNow: mutationProcedure.mutation(async ({ ctx }) =>
     analysisRunner.run(ctx.user.id),
   ),
+
+  /**
+   * Requeues emails whose analysis failed permanently.
+   *
+   * The counterpart to the retry budget: once the cause is fixed — a corrected API key,
+   * a prompt change — this is how the affected mail gets another chance without a manual
+   * database edit.
+   */
+  retryFailed: mutationProcedure.mutation(async ({ ctx }) => {
+    const requeued = await resetFailedAnalyses(ctx.user.id);
+    return { requeued };
+  }),
 
   /**
    * Disconnects Gmail.

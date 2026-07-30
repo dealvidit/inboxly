@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createEmailAnalyzer, createFakeProvider } from '@/features/ai';
-import { AiRateLimitError, AiRefusalError } from '@/features/ai';
+import { AiAuthError, AiRateLimitError, AiRefusalError } from '@/features/ai';
 import * as queue from '../repository/queue-repository';
 import { createAnalysisRunner } from './analysis-runner';
 import { createTestEmail, createTestUser, resetDatabase, testDb } from '~/tests/db';
@@ -356,6 +356,45 @@ describe('failure handling', () => {
     expect(attempt.rawResponse).toContain('not json at all');
     // Nothing invalid was persisted as an analysis.
     expect(await testDb.emailAnalysis.count()).toBe(0);
+  });
+
+  it('stops the batch on a misconfiguration instead of failing every email', async () => {
+    // A bad API key is an operator problem. Working through the batch would burn every
+    // email's retry budget on the same fault and permanently fail the whole mailbox.
+    const user = await createTestUser();
+    for (let i = 0; i < 4; i += 1) await createTestEmail(user.id);
+
+    const result = await runner({
+      errors: [new AiAuthError('fake', 'API key is invalid')],
+    }).run(user.id);
+
+    expect(result.claimed).toBe(4);
+    expect(result.failed).toBe(0);
+
+    // Every email is back in the queue, and none was permanently failed.
+    expect(await testDb.email.count({ where: { processingStatus: 'FAILED' } })).toBe(0);
+    expect(await queue.countClaimable(user.id)).toBe(4);
+  });
+
+  it('does not consume the retry budget for a misconfiguration', async () => {
+    const user = await createTestUser();
+    const email = await createTestEmail(user.id);
+    await testDb.email.update({
+      where: { id: email.id },
+      data: { processingStatus: 'NEEDS_RETRY', processingAttempts: 2 },
+    });
+
+    // Budget is 3 and two attempts are already spent; an auth failure must still not
+    // retire the email, because the fault is not the email's.
+    await runner({
+      errors: [new AiAuthError('fake', 'API key is invalid')],
+      maxAttempts: 3,
+    }).run(user.id);
+
+    expect(
+      (await testDb.email.findFirstOrThrow({ where: { id: email.id } }))
+        .processingStatus,
+    ).toBe('NEEDS_RETRY');
   });
 
   it('one email failing does not stop the rest of the batch', async () => {

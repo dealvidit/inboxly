@@ -13,7 +13,8 @@ Gmail ──▶ incremental sync ──▶ PostgreSQL ──▶ AI analysis ─�
 
 ## Status
 
-Under active development. Progress is tracked in [`docs/roadmap.md`](./docs/roadmap.md).
+All milestones complete. 308 tests pass; `npm run verify` and `npm run build` are green.
+Progress is tracked in [`docs/roadmap.md`](./docs/roadmap.md).
 
 - [x] Milestone 0 — architecture, domain model, ADRs
 - [x] Milestone 1 — toolchain
@@ -25,7 +26,7 @@ Under active development. Progress is tracked in [`docs/roadmap.md`](./docs/road
 - [x] Milestone 7 — API
 - [x] Milestone 8 — dashboard
 - [x] Milestone 9 — production readiness
-- [ ] Milestone 10 — final review
+- [x] Milestone 10 — final review
 
 ## Getting started
 

@@ -1,6 +1,5 @@
 import {
   ConnectionStatus,
-  ProcessingStatus,
   SyncPhase,
   SyncStatus,
   type SyncTrigger,
@@ -234,19 +233,6 @@ export async function softDeleteEmails(
   });
 
   return count;
-}
-
-/** Counts messages waiting for AI analysis. Used to decide whether to trigger a run. */
-export async function countPendingAnalysis(userId: string): Promise<number> {
-  return db.email.count({
-    where: {
-      userId,
-      deletedAt: null,
-      processingStatus: {
-        in: [ProcessingStatus.PENDING, ProcessingStatus.NEEDS_RETRY],
-      },
-    },
-  });
 }
 
 /**
