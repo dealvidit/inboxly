@@ -24,7 +24,7 @@ Under active development. Progress is tracked in [`docs/roadmap.md`](./docs/road
 - [x] Milestone 6 — processing lifecycle
 - [x] Milestone 7 — API
 - [x] Milestone 8 — dashboard
-- [ ] Milestone 9 — production readiness
+- [x] Milestone 9 — production readiness
 - [ ] Milestone 10 — final review
 
 ## Getting started
@@ -95,6 +95,9 @@ Open <http://localhost:3000> and sign in with Google.
 | [Architecture](./docs/architecture.md) | System overview, folder structure, dependency rules, domain model |
 | [Roadmap](./docs/roadmap.md)           | Milestones and their definitions of done                          |
 | [ADRs](./docs/adr)                     | Why the architecture is the way it is, and what was rejected      |
+| [API](./docs/api.md)                   | tRPC procedures, route handlers, errors, CSRF, rate limiting      |
+| [Database](./docs/database.md)         | Schema, indexes, full-text search, migrations                     |
+| [Deployment](./docs/deployment.md)     | Vercel setup, environment, cron, health, operating notes          |
 
 ## Design principles
 

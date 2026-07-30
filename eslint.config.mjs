@@ -181,6 +181,16 @@ const config = [
       'no-restricted-syntax': 'off',
     },
   },
+
+  {
+    // Instrumentation reads NEXT_RUNTIME, which Next.js injects to say which runtime the
+    // process is. That is not application configuration and cannot come from lib/env —
+    // this file runs before it, and in the edge runtime importing it would fail.
+    files: ['src/instrumentation.ts'],
+    rules: {
+      'no-restricted-syntax': 'off',
+    },
+  },
 ];
 
 export default config;
