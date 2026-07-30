@@ -29,7 +29,7 @@ overengineering for a single-database application with modest traffic. Vercel Cr
 resumable batch jobs covers the background need without a second service.
 
 **Hexagonal architecture with full port/adapter ceremony everywhere.** Correct in
-principle and largely what we want at the *integration* boundaries, but applying it
+principle and largely what we want at the _integration_ boundaries, but applying it
 uniformly means an interface for every collaborator, including ones with exactly one
 implementation and no test-substitution need. That is abstraction without a problem to
 solve.

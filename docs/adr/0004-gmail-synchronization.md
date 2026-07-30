@@ -25,7 +25,7 @@ quota problem, and it scales with mailbox size rather than with change volume.
 **Gmail push notifications via Pub/Sub.** The lowest-latency option and what a mature
 product would eventually run. It needs a Google Cloud Pub/Sub topic, a verified webhook
 endpoint, subscription renewal every seven days, and a fallback path anyway for missed
-notifications and expired watches. The pull-based history sync *is* that fallback path, so
+notifications and expired watches. The pull-based history sync _is_ that fallback path, so
 it must exist regardless; push is a latency optimisation layered on top. We build the
 foundation first and leave the door open.
 

@@ -29,25 +29,25 @@ Under active development. Progress is tracked in [`docs/roadmap.md`](./docs/road
 
 ## Stack
 
-| Concern | Choice |
-| --- | --- |
-| Framework | Next.js (App Router), React, TypeScript |
-| Styling | Tailwind CSS, shadcn/ui |
-| API | tRPC |
-| Data fetching | TanStack Query |
-| Database | PostgreSQL via Prisma |
-| Validation | Zod — schemas are the source of truth, types are inferred |
-| AI | Provider-agnostic; Anthropic by default |
-| Email | Gmail API with History-based incremental sync |
-| Hosting | Vercel |
+| Concern       | Choice                                                    |
+| ------------- | --------------------------------------------------------- |
+| Framework     | Next.js (App Router), React, TypeScript                   |
+| Styling       | Tailwind CSS, shadcn/ui                                   |
+| API           | tRPC                                                      |
+| Data fetching | TanStack Query                                            |
+| Database      | PostgreSQL via Prisma                                     |
+| Validation    | Zod — schemas are the source of truth, types are inferred |
+| AI            | Provider-agnostic; Anthropic by default                   |
+| Email         | Gmail API with History-based incremental sync             |
+| Hosting       | Vercel                                                    |
 
 ## Documentation
 
-| Document | Contents |
-| --- | --- |
+| Document                               | Contents                                                          |
+| -------------------------------------- | ----------------------------------------------------------------- |
 | [Architecture](./docs/architecture.md) | System overview, folder structure, dependency rules, domain model |
-| [Roadmap](./docs/roadmap.md) | Milestones and their definitions of done |
-| [ADRs](./docs/adr) | Why the architecture is the way it is, and what was rejected |
+| [Roadmap](./docs/roadmap.md)           | Milestones and their definitions of done                          |
+| [ADRs](./docs/adr)                     | Why the architecture is the way it is, and what was rejected      |
 
 ## Design principles
 

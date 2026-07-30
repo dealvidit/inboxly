@@ -1,0 +1,29 @@
+# Local development dependencies. Production uses a managed Postgres (ADR 0009).
+#
+#   npm run db:up     start
+#   npm run db:down   stop
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: inboxly-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: inboxly
+      POSTGRES_PASSWORD: inboxly
+      POSTGRES_DB: inboxly
+    ports:
+      - '5432:5432'
+    volumes:
+      - inboxly-pgdata:/var/lib/postgresql/data
+      # Creates the separate database that integration tests run against, so a
+      # test run can never truncate development data.
+      - ./scripts/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U inboxly -d inboxly']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  inboxly-pgdata:

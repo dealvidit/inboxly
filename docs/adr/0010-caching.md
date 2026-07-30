@@ -11,7 +11,7 @@ is per-user and private, so nothing is shareable between users or cacheable in a
 
 ## Problem
 
-Where should caching live, and what should deliberately *not* be cached?
+Where should caching live, and what should deliberately _not_ be cached?
 
 ## Alternatives considered
 
@@ -51,7 +51,7 @@ experience.
 - All dynamic authenticated routes declare `dynamic = 'force-dynamic'`, making
   "not cached" explicit rather than dependent on framework defaults.
 - No cross-request caching of user data. This is a deliberate constraint, not an omission.
-- Google's JWKS for ID token verification *is* cached in memory with a TTL: it is public,
+- Google's JWKS for ID token verification _is_ cached in memory with a TTL: it is public,
   slow-changing, and fetched on the login path.
 
 **Database** is where read performance is actually bought: covering indexes for the list

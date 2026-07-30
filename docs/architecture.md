@@ -35,8 +35,8 @@ runtime concerns:
                                    └──────────────┘
 ```
 
-There is no separate worker process. Synchronization and analysis run as *cooperative
-batch jobs* invoked either by a scheduled trigger (Vercel Cron) or by an authenticated
+There is no separate worker process. Synchronization and analysis run as _cooperative
+batch jobs_ invoked either by a scheduled trigger (Vercel Cron) or by an authenticated
 user action, and they persist their progress after every batch so they can be resumed by
 the next invocation. See [ADR 0006](./adr/0006-background-processing.md).
 
@@ -107,19 +107,19 @@ their collaborators as constructor arguments when they need to be substituted in
 
 The domain is small and deliberately explicit.
 
-| Aggregate | Purpose |
-| --- | --- |
-| `User` | A person who signed in with Google. |
-| `Session` | An opaque server-side session. |
-| `GoogleAccount` | OAuth credentials + Gmail connection state for a user. |
-| `SyncRun` | One synchronization attempt, with metrics and outcome. |
-| `SyncCheckpoint` | Durable resume point (Gmail `historyId` / page token). |
-| `Email` | A Gmail message projected into our schema. |
-| `EmailAnalysis` | The validated AI result for an email (1:1 with `Email`). |
-| `AnalysisAttempt` | Audit trail of AI calls, including validation failures. |
+| Aggregate         | Purpose                                                  |
+| ----------------- | -------------------------------------------------------- |
+| `User`            | A person who signed in with Google.                      |
+| `Session`         | An opaque server-side session.                           |
+| `GoogleAccount`   | OAuth credentials + Gmail connection state for a user.   |
+| `SyncRun`         | One synchronization attempt, with metrics and outcome.   |
+| `SyncCheckpoint`  | Durable resume point (Gmail `historyId` / page token).   |
+| `Email`           | A Gmail message projected into our schema.               |
+| `EmailAnalysis`   | The validated AI result for an email (1:1 with `Email`). |
+| `AnalysisAttempt` | Audit trail of AI calls, including validation failures.  |
 
 `Email` carries a **processing lifecycle** (`PENDING → PROCESSING → COMPLETED | FAILED |
-NEEDS_RETRY`) rather than a separate queue table, because the queue *is* the set of
+NEEDS_RETRY`) rather than a separate queue table, because the queue _is_ the set of
 emails needing analysis. See [ADR 0006](./adr/0006-background-processing.md).
 
 Full schema documentation: [`docs/database.md`](./database.md).
@@ -168,7 +168,7 @@ keyed on `(userId, gmailMessageId)`, and label/read-state changes are last-write
 Gmail's own state. Reprocessing a page is therefore always safe.
 
 Reliability: bounded exponential backoff with jitter, `Retry-After` respect, and a
-distinction between *retryable* (429, 5xx, network) and *terminal* (401, 403 scope)
+distinction between _retryable_ (429, 5xx, network) and _terminal_ (401, 403 scope)
 failures. Details: [ADR 0004](./adr/0004-gmail-synchronization.md).
 
 ---
@@ -185,7 +185,7 @@ interface AiProvider {
 ```
 
 `StructuredRequest` carries a prompt, a Zod schema, and generation limits. The provider
-is responsible for coaxing JSON out of a model; it is *not* responsible for trusting it.
+is responsible for coaxing JSON out of a model; it is _not_ responsible for trusting it.
 
 The pipeline, applied to every email:
 
@@ -233,13 +233,13 @@ a Zod schema; client types are inferred, never hand-written. See
 
 ## 9. Testing strategy
 
-| Layer | Tool | What it covers |
-| --- | --- | --- |
-| Unit | Vitest | Domain functions, Zod schemas, backoff, crypto, prompt building |
-| Contract | Vitest + fakes | `AiProvider` implementations against a shared suite |
-| Integration | Vitest + Postgres | Repositories, sync idempotency, session lifecycle |
-| API | Vitest + tRPC caller | Procedures with a real DB and fake Gmail/AI |
-| UI | Vitest + Testing Library | Critical components and accessibility affordances |
+| Layer       | Tool                     | What it covers                                                  |
+| ----------- | ------------------------ | --------------------------------------------------------------- |
+| Unit        | Vitest                   | Domain functions, Zod schemas, backoff, crypto, prompt building |
+| Contract    | Vitest + fakes           | `AiProvider` implementations against a shared suite             |
+| Integration | Vitest + Postgres        | Repositories, sync idempotency, session lifecycle               |
+| API         | Vitest + tRPC caller     | Procedures with a real DB and fake Gmail/AI                     |
+| UI          | Vitest + Testing Library | Critical components and accessibility affordances               |
 
 Gmail and Anthropic are always faked in tests behind their own interfaces. Integration
 tests run against a disposable Postgres database (`docker compose up db`).

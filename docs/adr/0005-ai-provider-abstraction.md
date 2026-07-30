@@ -47,9 +47,9 @@ export interface AiProvider {
 }
 
 export interface StructuredRequest<TSchema extends ZodType> {
-  readonly instruction: string;      // system-level task description
-  readonly input: string;            // the untrusted content being analysed
-  readonly schema: TSchema;          // the shape we require back
+  readonly instruction: string; // system-level task description
+  readonly input: string; // the untrusted content being analysed
+  readonly schema: TSchema; // the shape we require back
   readonly schemaName: string;
   readonly maxOutputTokens: number;
   readonly temperature?: number;
@@ -57,7 +57,7 @@ export interface StructuredRequest<TSchema extends ZodType> {
 }
 ```
 
-`generateStructured` returns *unvalidated text plus usage metadata*, not a parsed object.
+`generateStructured` returns _unvalidated text plus usage metadata_, not a parsed object.
 Parsing, validation, and retry belong to the pipeline (ADR 0007), not to the provider —
 that keeps every provider implementation trivial and keeps the trust boundary in exactly
 one place.
@@ -81,7 +81,7 @@ once against our own taxonomy rather than against vendor error shapes.
 ## Trade-offs
 
 The narrow interface means provider-specific capabilities (Anthropic's tool-based JSON
-mode, OpenAI's `response_format: json_schema`) are used *inside* the implementations as
+mode, OpenAI's `response_format: json_schema`) are used _inside_ the implementations as
 optimisations, but cannot be exposed as differing behaviour — each must still return text
 that satisfies the schema. That is the point, and it does mean a provider with a strict
 JSON mode looks no better from the outside than one without. Returning raw text rather

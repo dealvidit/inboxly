@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: inboxly
+          POSTGRES_PASSWORD: inboxly
+          POSTGRES_DB: inboxly_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U inboxly"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # CI values only. Real secrets live in the deployment platform.
+      DATABASE_URL: postgresql://inboxly:inboxly@localhost:5432/inboxly_test
+      DIRECT_DATABASE_URL: postgresql://inboxly:inboxly@localhost:5432/inboxly_test
+      APP_URL: http://localhost:3000
+      GOOGLE_CLIENT_ID: ci-client-id
+      GOOGLE_CLIENT_SECRET: ci-client-secret
+      GOOGLE_REDIRECT_URI: http://localhost:3000/api/auth/callback/google
+      ENCRYPTION_KEY: MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
+      ANTHROPIC_API_KEY: sk-ant-ci-placeholder
+      CRON_SECRET: ci-cron-secret-that-is-long-enough
+      LOG_LEVEL: error
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Format
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build

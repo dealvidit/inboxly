@@ -32,7 +32,7 @@ where we never filter on individual leaf values, and we keep the fields we filte
 sort on as real typed columns.
 
 **A dedicated `analysis_jobs` queue table.** Explicit, but it duplicates state that
-already exists: an email needing analysis *is* the queue. Two sources of truth means
+already exists: an email needing analysis _is_ the queue. Two sources of truth means
 reconciliation bugs. See ADR 0006.
 
 **Drizzle instead of Prisma.** Attractive for its SQL-first ergonomics, but PROJECT.md

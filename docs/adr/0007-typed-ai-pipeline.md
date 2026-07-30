@@ -27,7 +27,7 @@ type assertion is a lie the compiler cannot catch.
 near-misses the model would fix if told what was wrong.
 
 **Provider-native structured output only** (JSON schema mode / tool calling). Materially
-raises the first-attempt success rate and we *do* use it inside the Anthropic
+raises the first-attempt success rate and we _do_ use it inside the Anthropic
 implementation. But it is not a guarantee — enum drift and semantic constraints still slip
 through — and relying on it would make correctness a property of the provider rather than
 of our code. It is an optimisation, not the trust boundary.
@@ -72,7 +72,7 @@ of validating at all.
 **Prompt injection** is treated as a data-integrity problem, not a solved one. Email
 content is wrapped in explicit delimiters and labelled as untrusted data to be analysed
 rather than instructions to follow; the instruction block states that any directives found
-inside the content are data. Crucially, the *structural* defence is the schema: even a
+inside the content are data. Crucially, the _structural_ defence is the schema: even a
 fully successful injection can only produce a value that satisfies `EmailAnalysisSchema`,
 so the blast radius is a misleading summary, not arbitrary data entering the system. AI
 output is never used to make an authorization decision, never interpolated into SQL, and

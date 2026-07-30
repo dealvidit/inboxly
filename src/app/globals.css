@@ -1,0 +1,62 @@
+@import 'tailwindcss';
+
+/**
+ * Design tokens. Colours are declared as OKLCH so that light and dark variants stay
+ * perceptually consistent, and every foreground/background pair below meets WCAG AA.
+ */
+@theme {
+  --color-canvas: oklch(99% 0.004 250);
+  --color-surface: oklch(100% 0 0);
+  --color-surface-muted: oklch(97% 0.006 250);
+  --color-border: oklch(91% 0.008 250);
+  --color-ink: oklch(22% 0.02 255);
+  --color-ink-muted: oklch(50% 0.017 255);
+  --color-brand: oklch(52% 0.19 265);
+  --color-brand-hover: oklch(46% 0.19 265);
+  --color-brand-subtle: oklch(95% 0.03 265);
+  --color-on-brand: oklch(100% 0 0);
+
+  --color-urgent: oklch(56% 0.2 25);
+  --color-warning: oklch(66% 0.15 70);
+  --color-success: oklch(58% 0.14 155);
+  --color-info: oklch(58% 0.13 235);
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+
+  --radius-card: 0.75rem;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* A visible, consistent focus ring is the baseline for keyboard navigation. */
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

@@ -32,7 +32,7 @@ whether the email has been analysed, and every failure mode has to keep them agr
 time scales with the number of new emails, so a large sync blows the invocation budget,
 and a timeout loses every in-flight email with no record of how far it got.
 
-**Lifecycle state on the `emails` table, claimed atomically** (chosen). The queue *is* the
+**Lifecycle state on the `emails` table, claimed atomically** (chosen). The queue _is_ the
 set of emails whose status is `PENDING` or `NEEDS_RETRY`. One source of truth.
 
 ## Decision
