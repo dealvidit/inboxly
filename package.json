@@ -32,6 +32,7 @@
     "db:test:setup": "node scripts/setup-test-db.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "jose": "^6.2.5",
