@@ -1,4 +1,5 @@
 import {
+  ConnectionStatus,
   ProcessingStatus,
   SyncPhase,
   SyncStatus,
@@ -246,4 +247,22 @@ export async function countPendingAnalysis(userId: string): Promise<number> {
       },
     },
   });
+}
+
+/**
+ * Users whose Gmail connection is healthy enough to synchronize.
+ *
+ * Accounts marked NEEDS_RECONNECT or DISCONNECTED are excluded: running them would fail
+ * on every invocation and bury real failures in noise. They return once the user
+ * reconnects.
+ */
+export async function findConnectedUserIds(limit: number): Promise<string[]> {
+  const accounts = await db.googleAccount.findMany({
+    where: { connectionStatus: ConnectionStatus.CONNECTED },
+    select: { userId: true },
+    orderBy: { updatedAt: 'asc' },
+    take: limit,
+  });
+
+  return accounts.map((account) => account.userId);
 }
