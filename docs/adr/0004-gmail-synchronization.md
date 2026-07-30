@@ -32,9 +32,28 @@ foundation first and leave the door open.
 **`historyId` polling via the History API** (chosen), with list-based backfill for the
 first run and as the recovery path when a history id expires.
 
+### How we talk to the API
+
+**The `googleapis` SDK.** The official client, and the obvious default. But we use four
+endpoints — `messages.list`, `messages.get`, `history.list`, `getProfile` — and what
+actually matters about them is retry policy, backoff, `Retry-After` handling, and quota
+accounting. The SDK brings its own retry defaults that we would have to work around, and
+a large dependency surface to hide four requests behind.
+
+**Direct HTTP with `fetch`** (chosen). The request shapes are trivial and the reliability
+behaviour is the interesting part, so we own it, in one module, tested directly. The
+`no-restricted-imports` rule banning `googleapis` outside `features/gmail/client` stays in
+place as a guard against reintroducing an SDK here later.
+
 ## Decision
 
 One entry point, `SyncService.run(userId)`, with two phases selected by checkpoint state.
+
+All Gmail access goes through the `GmailTransport` interface. The HTTP implementation owns
+retries and error classification; the sync service sees only our own error types. Tests
+drive the entire engine against an in-memory `FakeGmail` — a message store, a monotonic
+history log, and page tokens — which is what makes backfill, pagination, deletions, label
+changes, expired history ids, and mid-run interruption all deterministically testable.
 
 **Backfill** — first connection, or recovery from an expired history id:
 
