@@ -107,6 +107,19 @@ belong:
 - Gemini reports a content-policy stop as a `finishReason` on a `200` response, where
   Anthropic returns a distinct `stop_reason`. Both normalise to `AiRefusalError`.
 
+Verified end to end against the live API on `gemini-3.5-flash-lite`: three seeded emails
+were analysed correctly on the first attempt each — an overdue invoice as FINANCE/HIGH
+with the amount, the chasing contact, and an _inferred_ deadline flagged as such; a
+scheduling request as MEETING with the Zoom URL, start time, duration, and attendees
+extracted; and a marketing blast as PROMOTION/LOW. No corrective retries were needed,
+which is the structured-output optimisation doing its job while validation still owns
+correctness.
+
+One operational note worth recording: newly enabled Gemini models can return `404` from
+`generateContent` for a period after they appear in `models.list`. That is propagation,
+not a client bug — the same request succeeds later unchanged. Do not restructure a
+working request in response to it.
+
 ## Consequences
 
 - Adding a provider is one directory and one factory entry; no business logic changes.

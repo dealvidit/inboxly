@@ -74,7 +74,7 @@ const envSchema = z.object({
    * is selected without a key, rather than failing every request at runtime.
    */
   GEMINI_API_KEY: z.string().optional(),
-  GEMINI_MODEL: z.string().default('gemini-2.0-flash'),
+  GEMINI_MODEL: z.string().default('gemini-3.5-flash-lite'),
 
   /* ─── Background jobs ──────────────────────────────────────────────────────
    * CRON_SECRET authenticates the scheduler against /api/jobs/*. Without it those
