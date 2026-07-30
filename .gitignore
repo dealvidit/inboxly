@@ -20,7 +20,8 @@ next-env.d.ts
 coverage/
 .vitest/
 
-# Prisma
+# Prisma — the client is generated from prisma/schema.prisma on install and build
+src/generated/
 prisma/*.db
 prisma/*.db-journal
 

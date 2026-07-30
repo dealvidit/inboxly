@@ -1,0 +1,411 @@
+// Inboxly database schema.
+//
+// Design notes live in docs/adr/0002-database-schema.md; the reader-facing summary is
+// docs/database.md. Two conventions run through this file:
+//
+//   1. Anything the dashboard filters or sorts on is a typed column. Only genuinely
+//      open-ended nested structures are Json.
+//   2. Every user-scoped table carries userId, so repository queries can scope by it
+//      directly instead of joining to prove ownership.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Identity
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  /// Google's `sub` claim. Stable identity: it survives the user changing their
+  /// email address, which `email` does not.
+  googleSubject String  @unique
+  email         String  @unique
+  name          String?
+  avatarUrl     String?
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  lastSeenAt DateTime?
+
+  sessions      Session[]
+  googleAccount GoogleAccount?
+  emails        Email[]
+  analyses      EmailAnalysis[]
+  attempts      AnalysisAttempt[]
+  syncRuns      SyncRun[]
+  checkpoint    SyncCheckpoint?
+
+  @@map("users")
+}
+
+model Session {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// SHA-256 of the token held in the cookie. The token itself is never stored, so a
+  /// database leak does not yield usable sessions. See ADR 0003.
+  tokenHash String @unique
+
+  /// Absolute expiry. Sessions are also revocable by deleting the row, which is the
+  /// reason for choosing server-side sessions over JWTs.
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+
+  userAgent String?
+  ipAddress String?
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Google / Gmail connection
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum ConnectionStatus {
+  /// Tokens are valid; synchronization may run.
+  CONNECTED
+  /// The refresh token was rejected or scopes were revoked. The dashboard prompts a
+  /// reconnect rather than reporting a hard error.
+  NEEDS_RECONNECT
+  /// The user disconnected deliberately.
+  DISCONNECTED
+}
+
+model GoogleAccount {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  userId String @unique @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Both tokens are stored as AES-256-GCM ciphertext with a version prefix, so the
+  /// scheme can be rotated. Plaintext never leaves the account service. See ADR 0003.
+  accessTokenCiphertext  String?
+  accessTokenExpiresAt   DateTime?
+  refreshTokenCiphertext String?
+
+  /// Scopes Google actually granted, which may be narrower than what we requested.
+  scopes String[]
+
+  connectionStatus ConnectionStatus @default(CONNECTED)
+  /// User-safe explanation of why a reconnect is needed. Never a raw provider error.
+  connectionError  String?
+
+  /// Gmail address of the connected mailbox, which can differ from the login email.
+  gmailAddress String?
+
+  connectedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([connectionStatus])
+  @@map("google_accounts")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Synchronization
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum SyncPhase {
+  /// Paging through users.messages.list to establish the initial projection.
+  BACKFILL
+  /// Following users.history.list from a stored history id.
+  INCREMENTAL
+}
+
+enum SyncTrigger {
+  CRON
+  USER
+  INITIAL_CONNECT
+}
+
+enum SyncStatus {
+  RUNNING
+  /// Reached a natural stopping point with nothing left to do.
+  COMPLETED
+  /// Stopped cleanly at the time budget with work remaining; the checkpoint is valid.
+  PARTIAL
+  FAILED
+}
+
+/// One row per user: the durable answer to "where should the next run start?".
+/// Separate from SyncRun so that history is append-only while resume state is a single
+/// mutable row. See ADR 0004.
+model SyncCheckpoint {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  userId String @unique @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  phase SyncPhase @default(BACKFILL)
+
+  /// Gmail history id to resume incremental sync from. Stored as text because we only
+  /// ever hand it back to Gmail verbatim — never compare or arithmetic on it — and text
+  /// keeps 64-bit ids out of the JSON serialization boundary.
+  historyId String?
+
+  /// Page token for an interrupted backfill, and how far it has progressed.
+  backfillPageToken      String?
+  backfillMessagesSynced Int       @default(0)
+  backfillCompletedAt    DateTime?
+
+  lastSyncedAt DateTime?
+  updatedAt    DateTime  @updatedAt
+
+  @@map("sync_checkpoints")
+}
+
+/// Append-only record of every synchronization attempt. Feeds the dashboard's sync
+/// widgets and is the primary signal for whether synchronization is healthy.
+model SyncRun {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  phase   SyncPhase
+  trigger SyncTrigger
+  status  SyncStatus  @default(RUNNING)
+
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  messagesFetched Int @default(0)
+  messagesCreated Int @default(0)
+  messagesUpdated Int @default(0)
+  messagesDeleted Int @default(0)
+  pagesProcessed  Int @default(0)
+  /// Gmail API calls made, so quota consumption is measurable per run.
+  apiCalls        Int @default(0)
+
+  /// User-safe failure summary. Provider detail goes to the logs, not here.
+  error String?
+
+  @@index([userId, startedAt(sort: Desc)])
+  @@map("sync_runs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Email projection
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum ProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  NEEDS_RETRY
+}
+
+model Email {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// The natural key. Every sync write is an upsert on (userId, gmailMessageId), which
+  /// is what makes synchronization idempotent by construction. See ADR 0004.
+  gmailMessageId String
+  gmailThreadId  String
+
+  subject   String
+  snippet   String  @db.Text
+  /// Plain-text body, decoded from Gmail's base64url parts and truncated before storage.
+  bodyText  String? @db.Text
+
+  fromName  String?
+  fromEmail String
+  toEmails  String[]
+  ccEmails  String[]
+  replyTo   String?
+
+  receivedAt DateTime
+  labels     String[]
+
+  isUnread       Boolean @default(true)
+  isStarred      Boolean @default(false)
+  /// Gmail's own IMPORTANT label, kept distinct from the AI's urgency judgement.
+  isImportant    Boolean @default(false)
+  hasAttachments Boolean @default(false)
+  sizeEstimate   Int     @default(0)
+
+  /// Soft delete: a message removed from Gmail disappears from the dashboard without
+  /// destroying its analysis. See ADR 0004.
+  deletedAt DateTime?
+
+  // ── Processing lifecycle (ADR 0006). The queue is this set of columns. ──
+  processingStatus     ProcessingStatus @default(PENDING)
+  processingAttempts   Int              @default(0)
+  /// While PROCESSING, how long the claim is held. A lease in the past means the
+  /// runner died and the row may be reclaimed.
+  processingLeaseUntil DateTime?
+  processingError      String?
+  processedAt          DateTime?
+
+  /// Maintained by a database trigger over subject, sender, snippet, and — once it
+  /// exists — the AI summary, so it is correct regardless of which code path wrote the
+  /// row. Queried through raw SQL; Prisma cannot express tsvector operations.
+  searchVector Unsupported("tsvector")?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  analysis EmailAnalysis?
+  attempts AnalysisAttempt[]
+
+  @@unique([userId, gmailMessageId])
+  /// The inbox page: scope by user, newest first.
+  @@index([userId, receivedAt(sort: Desc)])
+  /// The claim query in ADR 0006.
+  @@index([userId, processingStatus])
+  @@index([userId, gmailThreadId])
+  @@index([searchVector], type: Gin)
+  @@map("emails")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI analysis
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum EmailCategory {
+  WORK
+  PERSONAL
+  FINANCE
+  MEETING
+  PROMOTION
+  NEWSLETTER
+  /// Automated system mail: receipts, alerts, deployment notices.
+  NOTIFICATION
+  SUPPORT
+  TRAVEL
+  SPAM
+  OTHER
+}
+
+enum Urgency {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum Sentiment {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+  MIXED
+}
+
+/// The validated AI result for one email. Nothing reaches this table without passing
+/// EmailAnalysisSchema first. See ADR 0007.
+model EmailAnalysis {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  emailId String @unique @db.Uuid
+  email   Email  @relation(fields: [emailId], references: [id], onDelete: Cascade)
+
+  /// Denormalised so dashboard queries and aggregates scope by user without a join.
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // ── Filterable facets: typed columns, because the dashboard filters on them. ──
+  category         EmailCategory
+  urgency          Urgency
+  sentiment        Sentiment
+  requiresResponse Boolean
+  /// The model's self-reported confidence, 0..1. Surfaced in the UI, never used to
+  /// gate whether the analysis is stored.
+  confidence       Float
+
+  summary        String  @db.Text
+  suggestedReply String? @db.Text
+
+  // ── Open-ended structures: Json, because we render them but never filter on
+  //    individual leaves. Each is validated by Zod before it is written.
+  /// ActionItem[]
+  actionItems        Json
+  /// Deadline[]
+  deadlines          Json
+  /// MeetingInformation | null
+  meetingInformation Json?
+  /// ExtractedEntities
+  extractedEntities  Json
+
+  /// Version of EmailAnalysisSchema that produced this row, so a schema change can
+  /// identify which analyses need re-running.
+  schemaVersion Int @default(1)
+
+  // ── Provenance. Makes cost, latency, and model drift measurable. ──
+  providerId   String
+  model        String
+  inputTokens  Int
+  outputTokens Int
+  latencyMs    Int
+
+  analyzedAt DateTime @default(now())
+
+  @@index([userId, category])
+  @@index([userId, urgency])
+  @@index([userId, requiresResponse])
+  @@map("email_analyses")
+}
+
+enum AttemptOutcome {
+  SUCCEEDED
+  /// The model responded, but the response failed schema validation.
+  INVALID_OUTPUT
+  /// The response was not parseable as JSON at all.
+  UNPARSEABLE_OUTPUT
+  PROVIDER_ERROR
+  RATE_LIMITED
+  TIMEOUT
+}
+
+/// One row per AI call, successful or not. This is the audit trail that makes prompt
+/// regressions diagnosable after the fact, and validation failure rate measurable.
+/// See ADR 0007.
+model AnalysisAttempt {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  emailId String @db.Uuid
+  email   Email  @relation(fields: [emailId], references: [id], onDelete: Cascade)
+
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// 1 for the first call, incrementing for each corrective retry within one attempt.
+  attemptNumber Int
+  outcome       AttemptOutcome
+
+  providerId String
+  model      String
+
+  /// Flattened Zod issues when outcome is INVALID_OUTPUT.
+  validationErrors Json?
+  /// Truncated raw model output, for diagnostics only. The one place raw output is
+  /// persisted, and it is never returned to a client.
+  rawResponse      String? @db.Text
+  /// Normalised provider error message. Never shown to users.
+  errorMessage     String?
+
+  inputTokens  Int?
+  outputTokens Int?
+  latencyMs    Int
+
+  createdAt DateTime @default(now())
+
+  @@index([emailId, createdAt])
+  @@index([userId, outcome, createdAt])
+  @@map("analysis_attempts")
+}

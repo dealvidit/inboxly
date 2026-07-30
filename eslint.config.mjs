@@ -159,6 +159,16 @@ const config = [
       '@typescript-eslint/no-non-null-assertion': 'off',
     },
   },
+
+  {
+    // Developer scripts are command-line tools: printing to stdout is their job, and
+    // they run before the application's configuration module is necessarily loadable.
+    files: ['scripts/**/*.{mjs,ts}'],
+    rules: {
+      'no-console': 'off',
+      'no-restricted-syntax': 'off',
+    },
+  },
 ];
 
 export default config;
