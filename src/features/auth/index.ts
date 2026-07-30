@@ -7,7 +7,6 @@
 
 export { getCurrentSession, requireCurrentSession } from './current-session';
 export { COOKIE_NAMES } from './cookies';
-export { CSRF_HEADER, assertCsrfTokenMatches, isSafeMethod } from './csrf';
 
 export { authService } from './service/auth-service';
 export {

@@ -5,7 +5,7 @@ import {
   expiredCookieAttributes,
   sessionCookieAttributes,
 } from '@/features/auth/cookies';
-import { CSRF_HEADER, assertCsrfTokenMatches } from '@/features/auth/csrf';
+import { CSRF_HEADER, assertCsrfTokenMatches } from '@/lib/csrf';
 import { revokeSession } from '@/features/auth/service/session-service';
 import { env } from '@/lib/env';
 import { toAppError } from '@/server/errors';

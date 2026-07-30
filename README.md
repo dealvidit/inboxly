@@ -22,7 +22,7 @@ Under active development. Progress is tracked in [`docs/roadmap.md`](./docs/road
 - [x] Milestone 4 — Gmail synchronization
 - [x] Milestone 5 — AI pipeline
 - [x] Milestone 6 — processing lifecycle
-- [ ] Milestone 7 — API
+- [x] Milestone 7 — API
 - [ ] Milestone 8 — dashboard
 - [ ] Milestone 9 — production readiness
 - [ ] Milestone 10 — final review

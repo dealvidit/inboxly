@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateToken } from '@/lib/crypto';
+import { generateToken } from './crypto';
 import { ForbiddenError } from '@/server/errors';
 import { assertCsrfTokenMatches, isSafeMethod } from './csrf';
 

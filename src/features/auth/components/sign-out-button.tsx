@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { CSRF_HEADER } from '../csrf';
+import { CSRF_HEADER } from '@/lib/csrf';
 import { readCsrfToken } from '../read-csrf-token';
 
 /**
