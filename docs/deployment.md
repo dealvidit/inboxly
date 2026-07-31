@@ -17,15 +17,33 @@ In [Google Cloud Console](https://console.cloud.google.com/apis/credentials):
 
 1. **APIs & Services → Library** — enable **Gmail API**.
 2. **Credentials → Create credentials → OAuth client ID → Web application**.
-3. Add the production redirect URI:
+3. Under **Authorized redirect URIs**, add the production callback:
    `https://your-domain.com/api/auth/callback/google`
-   (add the localhost one too if the same client is used for development).
+   (add `http://localhost:3000/api/auth/callback/google` too if the same client is used
+   for development).
 4. **OAuth consent screen** — add the scopes `openid`, `email`, `profile`, and
    `https://www.googleapis.com/auth/gmail.readonly`.
+5. **Audience → Test users** — add every account that will sign in, including your own.
+
+Leave **Authorized JavaScript origins** empty. The OAuth flow here is server-side; no
+Google JavaScript runs in the browser.
 
 While the consent screen is in _Testing_, only listed test users can sign in, and refresh
-tokens expire after seven days. Publishing is required for real use, and Google reviews
-apps requesting Gmail scopes — budget time for that.
+tokens expire after seven days — so background sync stops weekly until the user reconnects
+via `/api/auth/google/start?reconnect=1`. Publishing is required for real use, and Google
+reviews apps requesting Gmail scopes — budget time for that.
+
+### Two errors worth recognising
+
+**`Error 400: redirect_uri_mismatch`** — the callback is not registered on the client, or
+not registered identically. It must match character for character: scheme, host, port, and
+path, with no trailing slash. A common misstep is pasting it into _Authorized JavaScript
+origins_, which rejects it, because origins may not contain a path; the full URL belongs in
+_Authorized redirect URIs_. `http://localhost` is exempt from the HTTPS requirement.
+
+**`Error 403: access_denied`** with "can only be accessed by developer-approved testers" —
+the signing-in account is not on the test-user list. Project ownership does not grant
+access; the owner must be listed like anyone else.
 
 ## 2. Environment variables
 
