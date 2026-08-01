@@ -14,9 +14,11 @@ import { ForbiddenError } from '@/server/errors';
  * This layers on top of `SameSite=Lax` rather than replacing it. Lax alone is good but
  * not a complete defence — it does not cover every browser or every request shape — and
  * the cost of the second layer is one header.
+ *
+ * This module is server-only, by way of `lib/crypto` → `lib/env`. The header *name* that
+ * the browser also needs is deliberately not re-exported from here; it lives in
+ * `./csrf-header`, so that importing it cannot drag configuration into the client bundle.
  */
-
-export const CSRF_HEADER = 'x-csrf-token';
 
 /**
  * Throws unless the header matches the cookie. Both must be present: a missing token is

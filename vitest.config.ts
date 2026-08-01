@@ -26,6 +26,14 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
       '~/tests': fileURLToPath(new URL('./tests', import.meta.url)),
+      // `server-only` throws unless it is resolved under the `react-server` condition,
+      // which only the Next.js bundler sets. Tests import server modules directly and
+      // legitimately, so point it at the package's own no-op entry. Setting
+      // `resolve.conditions` instead would also change how React resolves, pulling in
+      // its RSC build — a much larger blast radius for the same result.
+      'server-only': fileURLToPath(
+        new URL('./node_modules/server-only/empty.js', import.meta.url),
+      ),
     },
   },
 });

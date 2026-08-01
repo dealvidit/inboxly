@@ -1,26 +1,27 @@
 import { isProduction } from '@/lib/env';
+import { BASE_COOKIE_NAMES, HOST_PREFIX } from './cookie-names';
 import { OAUTH_FLOW_TTL_MS, SESSION_DURATION_MS } from './domain/session';
 
 /**
  * Cookie names and attributes, defined once.
  *
- * The `__Host-` prefix is applied only in production. It is the strongest binding a
- * cookie can have — the browser refuses it unless it is `Secure`, `Path=/`, and has no
- * `Domain` — but it therefore cannot be set over plain http, which is how local
- * development runs. Environments are separate deployments, so a different name in each
+ * The `__Host-` prefix is applied only in production, for the reason given in
+ * `./cookie-names`. Environments are separate deployments, so a different name in each
  * costs nothing.
+ *
+ * This module is server-only by way of `lib/env`. The unprefixed names live in
+ * `./cookie-names`, which the browser can import safely.
  */
 
-const prefix = isProduction ? '__Host-' : '';
+const prefix = isProduction ? HOST_PREFIX : '';
 
 export const COOKIE_NAMES = {
-  session: `${prefix}inboxly_session`,
-  csrf: `${prefix}inboxly_csrf`,
-  oauthState: `${prefix}inboxly_oauth_state`,
-  oauthVerifier: `${prefix}inboxly_oauth_verifier`,
-  oauthNonce: `${prefix}inboxly_oauth_nonce`,
-  /** Where to send the user after a successful sign-in. */
-  oauthReturnTo: `${prefix}inboxly_oauth_return_to`,
+  session: `${prefix}${BASE_COOKIE_NAMES.session}`,
+  csrf: `${prefix}${BASE_COOKIE_NAMES.csrf}`,
+  oauthState: `${prefix}${BASE_COOKIE_NAMES.oauthState}`,
+  oauthVerifier: `${prefix}${BASE_COOKIE_NAMES.oauthVerifier}`,
+  oauthNonce: `${prefix}${BASE_COOKIE_NAMES.oauthNonce}`,
+  oauthReturnTo: `${prefix}${BASE_COOKIE_NAMES.oauthReturnTo}`,
 } as const;
 
 export interface CookieAttributes {

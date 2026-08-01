@@ -5,7 +5,7 @@ import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import { createTRPCContext } from '@trpc/tanstack-react-query';
 import { useState, type ReactNode } from 'react';
 import superjson from 'superjson';
-import { CSRF_HEADER } from '@/lib/csrf';
+import { CSRF_HEADER } from '@/lib/csrf-header';
 import { readCsrfToken } from '@/features/auth/read-csrf-token';
 import type { AppRouter } from '@/server/trpc/root';
 

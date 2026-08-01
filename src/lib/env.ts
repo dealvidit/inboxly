@@ -1,3 +1,4 @@
+import 'server-only';
 import { z } from 'zod';
 
 /**
@@ -8,6 +9,12 @@ import { z } from 'zod';
  *
  * `no-restricted-syntax` in eslint.config.mjs forbids `process.env` everywhere else,
  * so this file is the only door to configuration.
+ *
+ * The `server-only` import makes this module unreachable from a client component: doing
+ * so is a build error naming the importing file. Without it the failure mode is far
+ * worse — `process.env` is empty in the browser, so validation throws at import time and
+ * every variable is reported missing, which reads like a broken `.env` rather than the
+ * bad import it actually is. That misdiagnosis cost real time once already.
  */
 
 const nonEmpty = (label: string) => z.string().min(1, `${label} must not be empty`);
