@@ -89,6 +89,20 @@ email to the queue with backoff; permanent failures (a validation failure that s
 corrective retry, an oversized email) go straight to `FAILED` with a typed reason rather
 than burning the budget.
 
+**Batch halting** is the counterpart, and it exists because the budget alone gets this
+wrong. Some failures are properties of the deployment rather than of the email being
+analysed: a rejected API key, or an exhausted provider quota. Charging those to the
+email's budget means a throttled provider marches the entire queue into permanent failure
+while never actually reading a single message. So the runner classifies them, stops the
+batch, releases the remaining claims immediately (rather than waiting out the lease), and
+reports `haltedBy` — `RATE_LIMIT` or `PROVIDER_ERROR` — so a caller looping to drain the
+queue knows to stop rather than meet the same wall.
+
+This was not theoretical. Against a real 501-email mailbox on a free provider tier, the
+first implementation logged 103 rate-limited attempts and failed roughly fifty emails that
+were never analysed at all. `RATE_LIMIT` is distinguished from `PROVIDER_ERROR` because
+only the first is fixed by waiting; the second needs an operator.
+
 **Invocation** comes from two places, both calling the same service: a Vercel Cron hitting
 `POST /api/jobs/analyze` (authenticated by a shared secret in a header), and an
 authenticated user action from the dashboard. Nothing about the runner cares which.

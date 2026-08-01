@@ -79,7 +79,22 @@ would duplicate API calls, since the first holds the checkpoint.
 
 #### `sync.analyzeNow` — mutation
 
-Runs one analysis batch. Returns `{ claimed, completed, failed, retrying, hasMoreWork }`.
+Runs one analysis batch. Returns
+`{ claimed, completed, failed, retrying, hasMoreWork, haltedBy }`.
+
+A batch is bounded (`ANALYSIS_BATCH_SIZE`, ten by default), so draining a large queue
+means calling this repeatedly while `hasMoreWork` is true.
+
+`haltedBy` is the exception to that loop. It is set — `RATE_LIMIT` or `PROVIDER_ERROR` —
+when the batch stopped because analysis is unavailable rather than because it ran out of
+work. The remaining emails are released back to the queue untouched, and **no email is
+charged a retry attempt**, because the failure belongs to the deployment rather than to
+any message. A caller must stop when it sees this; calling again immediately only meets
+the same wall.
+
+#### `sync.retryFailed` — mutation
+
+Requeues emails whose analysis failed permanently. Returns `{ requeued }`.
 
 #### `sync.disconnect` — mutation
 

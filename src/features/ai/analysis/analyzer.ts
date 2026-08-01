@@ -74,11 +74,15 @@ export type AnalysisResult =
       /** Whether the caller should return this email to the queue or fail it outright. */
       readonly retryable: boolean;
       /**
-       * True when the failure is a property of the deployment rather than of this email
-       * — a missing or invalid API key, for instance. Every email in the batch would
-       * fail identically, so the caller should stop rather than work through them.
+       * Set when the failure is a property of the deployment rather than of this email —
+       * an invalid API key, or an exhausted quota. Every email in the batch would fail
+       * identically, so the caller should stop rather than work through them, and must
+       * not charge the failure to any email's retry budget.
+       *
+       * `RATE_LIMIT` is distinguished from `PROVIDER_ERROR` because it is the one a
+       * caller can act on: waiting fixes it, whereas a rejected key needs an operator.
        */
-      readonly fatal: boolean;
+      readonly haltBatch: 'RATE_LIMIT' | 'PROVIDER_ERROR' | null;
       /** User-safe reason, suitable for `Email.processingError`. */
       readonly reason: string;
       readonly attempts: readonly AnalysisAttemptRecord[];
@@ -128,7 +132,7 @@ export function createEmailAnalyzer(deps: EmailAnalyzerDeps) {
           return {
             ok: false,
             retryable: isRetryableProviderError(error),
-            fatal: error instanceof AiAuthError,
+            haltBatch: haltBatchFor(error),
             reason: reasonFor(error),
             attempts,
           };
@@ -218,7 +222,7 @@ export function createEmailAnalyzer(deps: EmailAnalyzerDeps) {
       return {
         ok: false,
         retryable: false,
-        fatal: false,
+        haltBatch: null,
         reason: 'The AI response did not match the expected format.',
         attempts,
       };
@@ -276,6 +280,20 @@ function outcomeFor(error: unknown): AttemptOutcome {
   if (error instanceof AiRateLimitError) return AttemptOutcome.RATE_LIMITED;
   if (error instanceof AiRefusalError) return AttemptOutcome.PROVIDER_ERROR;
   return AttemptOutcome.PROVIDER_ERROR;
+}
+
+/**
+ * Whether this failure should stop the whole batch.
+ *
+ * Both cases share one property: the next email would fail the same way, so continuing
+ * only burns retry budget on emails that are perfectly fine. A rate limit belongs here
+ * just as much as a bad key — treating it as an ordinary retryable error is what let a
+ * throttled provider march a queue into permanent failure.
+ */
+function haltBatchFor(error: unknown): 'RATE_LIMIT' | 'PROVIDER_ERROR' | null {
+  if (error instanceof AiRateLimitError) return 'RATE_LIMIT';
+  if (error instanceof AiAuthError) return 'PROVIDER_ERROR';
+  return null;
 }
 
 function isRetryableProviderError(error: unknown): boolean {

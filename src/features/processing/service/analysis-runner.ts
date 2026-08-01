@@ -31,6 +31,12 @@ export interface AnalysisRunResult {
   readonly retrying: number;
   /** True when the batch or the budget filled up and work remains. */
   readonly hasMoreWork: boolean;
+  /**
+   * Set when the batch stopped because analysis is unavailable rather than because it
+   * ran out of work. A caller looping until the queue drains must not treat this as
+   * ordinary `hasMoreWork` — retrying immediately would just hit the same wall.
+   */
+  readonly haltedBy: 'RATE_LIMIT' | 'PROVIDER_ERROR' | null;
 }
 
 export interface AnalysisRunnerDeps {
@@ -64,7 +70,14 @@ export function createAnalysisRunner(deps: AnalysisRunnerDeps = {}) {
       );
 
       if (claimed.length === 0) {
-        return { claimed: 0, completed: 0, failed: 0, retrying: 0, hasMoreWork: false };
+        return {
+          claimed: 0,
+          completed: 0,
+          failed: 0,
+          retrying: 0,
+          hasMoreWork: false,
+          haltedBy: null,
+        };
       }
 
       runLog.info('analysis batch claimed', { count: claimed.length });
@@ -73,6 +86,7 @@ export function createAnalysisRunner(deps: AnalysisRunnerDeps = {}) {
       let failed = 0;
       let retrying = 0;
       let stoppedEarly = false;
+      let haltedBy: 'RATE_LIMIT' | 'PROVIDER_ERROR' | null = null;
 
       for (const [index, email] of claimed.entries()) {
         if (!budget.hasTimeRemaining(EMAIL_RESERVE_MS)) {
@@ -85,18 +99,19 @@ export function createAnalysisRunner(deps: AnalysisRunnerDeps = {}) {
         }
 
         const outcome = await analyseOne(email, maxAttempts);
-        if (outcome === 'completed') completed += 1;
-        else if (outcome === 'failed') failed += 1;
-        else retrying += 1; // 'retry' and 'fatal' both leave the email queued
+        if (outcome.status === 'completed') completed += 1;
+        else if (outcome.status === 'failed') failed += 1;
+        else retrying += 1; // 'retry' and 'halt' both leave the email queued
 
-        if (outcome === 'fatal') {
-          // The failure is a property of the deployment, not of this email — a bad API
-          // key, say. Every remaining email would fail identically, so release them
-          // untouched rather than burning each one's retry budget on the same fault.
+        if (outcome.status === 'halt') {
+          // The failure is a property of the deployment, not of this email — a rejected
+          // API key, or an exhausted quota. Every remaining email would fail identically,
+          // so release them untouched rather than burning each one's retry budget on the
+          // same fault.
           //
-          // Releasing explicitly rather than letting the lease lapse matters: a lease
-          // runs for minutes, and the operator who fixes the key wants the next run to
-          // pick the work up immediately.
+          // Releasing explicitly rather than letting the lease lapse matters: a lease runs
+          // for minutes, and whoever fixes the key — or simply waits out the rate limit —
+          // wants the next run to pick the work up immediately.
           const remaining = claimed.slice(index + 1);
           for (const deferred of remaining) {
             await queue.markNeedsRetry(
@@ -106,11 +121,12 @@ export function createAnalysisRunner(deps: AnalysisRunnerDeps = {}) {
           }
           retrying += remaining.length;
 
-          runLog.error(
-            'stopping batch: AI analysis is misconfigured',
-            new Error('provider authentication failed'),
-            { released: remaining.length },
-          );
+          haltedBy = outcome.haltBatch;
+          runLog.warn('stopping batch: AI analysis is unavailable', {
+            cause: outcome.haltBatch,
+            reason: outcome.reason,
+            released: remaining.length,
+          });
           stoppedEarly = true;
           break;
         }
@@ -122,6 +138,7 @@ export function createAnalysisRunner(deps: AnalysisRunnerDeps = {}) {
         failed,
         retrying,
         hasMoreWork: stoppedEarly || claimed.length === batchSize,
+        haltedBy,
       };
 
       runLog.info('analysis batch finished', { ...result });
@@ -142,7 +159,14 @@ export function createAnalysisRunner(deps: AnalysisRunnerDeps = {}) {
   async function analyseOne(
     email: ClaimedEmail,
     attemptBudget: number,
-  ): Promise<'completed' | 'failed' | 'retry' | 'fatal'> {
+  ): Promise<
+    | { status: 'completed' | 'failed' | 'retry' }
+    | {
+        status: 'halt';
+        haltBatch: 'RATE_LIMIT' | 'PROVIDER_ERROR';
+        reason: string;
+      }
+  > {
     const result = await analyzer.analyze(toProjection(email));
 
     await recordAttempts(email.id, email.userId, result.attempts);
@@ -160,14 +184,14 @@ export function createAnalysisRunner(deps: AnalysisRunnerDeps = {}) {
         latencyMs: result.latencyMs,
       });
       await queue.markCompleted(email.id, now());
-      return 'completed';
+      return { status: 'completed' };
     }
 
     // A deployment-level fault must not consume this email's retry budget: the email is
-    // fine, the configuration is not. Return it to the queue and let the caller stop.
-    if (result.fatal) {
+    // fine, the provider is not. Return it to the queue and let the caller stop.
+    if (result.haltBatch) {
       await queue.markNeedsRetry(email.id, result.reason);
-      return 'fatal';
+      return { status: 'halt', haltBatch: result.haltBatch, reason: result.reason };
     }
 
     // The claim incremented `processingAttempts` and the row was loaded afterwards, so
@@ -176,7 +200,7 @@ export function createAnalysisRunner(deps: AnalysisRunnerDeps = {}) {
 
     if (result.retryable && !budgetExhausted) {
       await queue.markNeedsRetry(email.id, result.reason);
-      return 'retry';
+      return { status: 'retry' };
     }
 
     await queue.markFailed(
@@ -185,7 +209,7 @@ export function createAnalysisRunner(deps: AnalysisRunnerDeps = {}) {
         ? `${result.reason} (giving up after ${attemptBudget} attempts)`
         : result.reason,
     );
-    return 'failed';
+    return { status: 'failed' };
   }
 }
 

@@ -1,6 +1,11 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createEmailAnalyzer, createFakeProvider } from '@/features/ai';
-import { AiAuthError, AiRateLimitError, AiRefusalError } from '@/features/ai';
+import {
+  AiAuthError,
+  AiRateLimitError,
+  AiRefusalError,
+  AiTransientError,
+} from '@/features/ai';
 import * as queue from '../repository/queue-repository';
 import { createAnalysisRunner } from './analysis-runner';
 import { createTestEmail, createTestUser, resetDatabase, testDb } from '~/tests/db';
@@ -314,8 +319,10 @@ describe('failure handling', () => {
       data: { processingStatus: 'NEEDS_RETRY', processingAttempts: 2 },
     });
 
+    // A transient error, not a rate limit: rate limits halt the batch instead of being
+    // charged to the email, so they can never exhaust a budget.
     await runner({
-      errors: [new AiRateLimitError('fake')],
+      errors: [new AiTransientError('fake', 'upstream 503')],
       maxAttempts: 3,
     }).run(user.id);
 
@@ -332,14 +339,65 @@ describe('failure handling', () => {
       data: { processingStatus: 'NEEDS_RETRY', processingAttempts: 1 },
     });
 
-    await runner({ errors: [new AiRateLimitError('fake')], maxAttempts: 3 }).run(
-      user.id,
-    );
+    await runner({
+      errors: [new AiTransientError('fake', 'upstream 503')],
+      maxAttempts: 3,
+    }).run(user.id);
 
     expect(
       (await testDb.email.findFirstOrThrow({ where: { id: email.id } }))
         .processingStatus,
     ).toBe('NEEDS_RETRY');
+  });
+
+  /**
+   * Rate limiting is the failure a free provider tier produces constantly, and treating
+   * it as an ordinary retryable error let a throttled provider march an entire queue into
+   * permanent failure — observed against a real mailbox, where 103 rate-limited attempts
+   * were charged to emails that were never even read.
+   */
+  it('never charges a rate limit to an email, even with no budget left', async () => {
+    const user = await createTestUser();
+    const email = await createTestEmail(user.id);
+    await testDb.email.update({
+      where: { id: email.id },
+      // Budget already spent: under the old behaviour this failed the email outright.
+      data: { processingStatus: 'NEEDS_RETRY', processingAttempts: 3 },
+    });
+
+    const result = await runner({
+      errors: [new AiRateLimitError('fake')],
+      maxAttempts: 3,
+    }).run(user.id);
+
+    const after = await testDb.email.findFirstOrThrow({ where: { id: email.id } });
+    expect(after.processingStatus).toBe('NEEDS_RETRY');
+    expect(result.failed).toBe(0);
+    expect(result.haltedBy).toBe('RATE_LIMIT');
+  });
+
+  it('stops the batch on a rate limit and releases the rest untouched', async () => {
+    const user = await createTestUser();
+    for (let index = 0; index < 4; index += 1) await createTestEmail(user.id);
+
+    const result = await runner({
+      errors: [new AiRateLimitError('fake')],
+      batchSize: 4,
+    }).run(user.id);
+
+    expect(result).toMatchObject({
+      claimed: 4,
+      completed: 0,
+      failed: 0,
+      retrying: 4,
+      haltedBy: 'RATE_LIMIT',
+    });
+
+    const statuses = await testDb.email.findMany({
+      where: { userId: user.id },
+      select: { processingStatus: true },
+    });
+    expect(statuses.every((row) => row.processingStatus === 'NEEDS_RETRY')).toBe(true);
   });
 
   it('fails an email whose output never validates, and keeps the diagnosis', async () => {
