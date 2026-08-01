@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { Card, Skeleton } from '@/components/ui/primitives';
+import { Card, ProgressBar, Skeleton } from '@/components/ui/primitives';
 import { useTRPC } from '@/lib/trpc/client';
 
 /**
@@ -49,13 +49,20 @@ export function StatWidgets() {
                 hint: `${Math.round(
                   (data.analysedEmails / data.totalEmails) * 100,
                 )}% of mailbox`,
+                progress: {
+                  value: data.analysedEmails,
+                  max: data.totalEmails,
+                  label: 'Mailbox analysed',
+                },
               }
             : {})}
         />
         <Stat
           label="Processing queue"
           value={data.queueDepth.toLocaleString()}
-          hint={data.queueDepth > 0 ? 'Analysis in progress' : 'Nothing waiting'}
+          // Not "analysis in progress": a non-empty queue means work is *waiting*, and
+          // saying otherwise told the user something was happening when nothing was.
+          hint={data.queueDepth > 0 ? 'Waiting to be analysed' : 'Nothing waiting'}
         />
         <Stat
           label="Failed"
@@ -97,11 +104,13 @@ function Stat({
   value,
   hint,
   tone = 'default',
+  progress,
 }: {
   label: string;
   value: string;
   hint?: string;
   tone?: 'default' | 'urgent';
+  progress?: { value: number; max: number; label: string };
 }) {
   return (
     <Card className="p-4">
@@ -115,6 +124,11 @@ function Stat({
       >
         {value}
       </dd>
+      {progress ? (
+        <div className="mt-2">
+          <ProgressBar {...progress} />
+        </div>
+      ) : null}
       {hint ? <p className="text-ink-muted mt-0.5 text-xs">{hint}</p> : null}
     </Card>
   );

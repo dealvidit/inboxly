@@ -104,3 +104,39 @@ export function Spinner({ label = 'Loading' }: { label?: string }) {
     </span>
   );
 }
+
+/**
+ * A determinate progress bar.
+ *
+ * Determinate on purpose: analysis has a known total, and "142 of 501" answers the
+ * question a spinner leaves open — whether anything is happening, and how long it has
+ * left. It carries the real ARIA progressbar semantics rather than a decorative div, so
+ * the value is announced and not merely drawn.
+ */
+export function ProgressBar({
+  value,
+  max,
+  label,
+}: {
+  value: number;
+  max: number;
+  label: string;
+}) {
+  const percent = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
+
+  return (
+    <div
+      role="progressbar"
+      aria-valuenow={value}
+      aria-valuemin={0}
+      aria-valuemax={max}
+      aria-valuetext={`${label}: ${value} of ${max}`}
+      className="bg-surface-muted h-1.5 w-full overflow-hidden rounded-full"
+    >
+      <div
+        className="bg-brand h-full rounded-full transition-[width] duration-500 ease-out"
+        style={{ width: `${percent}%` }}
+      />
+    </div>
+  );
+}
